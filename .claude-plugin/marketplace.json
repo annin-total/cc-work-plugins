@@ -1,0 +1,19 @@
+{
+  "name": "cc-work-plugins",
+  "owner": {
+    "name": "annin-total"
+  },
+  "description": "業務で使う Claude Code の小さなツール集（Windows・macOS 対応）",
+  "plugins": [
+    {
+      "name": "hearing",
+      "source": "./plugins/hearing",
+      "description": "Claude Code の履歴から利用の重さを推定し、ヒアリング調書を作る /hearing:hearing-cost"
+    },
+    {
+      "name": "retitle",
+      "source": "./plugins/retitle",
+      "description": "作業の趣旨が変わるたびにセッションタイトルを「要約 · ブランチ」へ付け直す hook の導入スキル"
+    }
+  ]
+}

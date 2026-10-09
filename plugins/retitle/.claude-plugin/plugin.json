@@ -1,0 +1,9 @@
+{
+  "name": "retitle",
+  "version": "0.1.0",
+  "description": "セッションタイトルを「要約 · ブランチ」へ自動で付け直す hook と /retitle を導入する",
+  "author": {
+    "name": "annin-total"
+  },
+  "license": "MIT"
+}
