@@ -19,6 +19,11 @@
       "name": "pluginize",
       "source": "./plugins/pluginize",
       "description": "自作の hook・スキルを規約に合わせて調整し、プラグインとして取り込む PR を作る /pluginize:pluginize"
+    },
+    {
+      "name": "gitignore-sync",
+      "source": "./plugins/gitignore-sync",
+      "description": ".gitignore 対象なのに追跡されているファイルを手元に残したまま追跡解除し、誤って push した秘密ファイルを履歴から消す /gitignore-sync:gitignore-sync"
     }
   ]
 }

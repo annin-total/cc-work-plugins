@@ -1,0 +1,29 @@
+{
+  "skill_name": "gitignore-sync",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "このリポジトリで /gitignore-sync:gitignore-sync を実行してください。secret.txt は .gitignore に入っているのに Git が追跡しています。",
+      "expected_output": "同梱スクリプトの --check のあと --untrack を使い、secret.txt を index からのみ外す。secret.txt の内容はバイト単位で変わらない。通常の commit / push はリモート追跡を揃えるためだけに行い、force push はしない。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "gitignore と追跡状態は既に一致しています。/gitignore-sync:gitignore-sync をもう一度実行してください。",
+      "expected_output": "スクリプトは --check のみで、git rm も commit も push もせず、一致していることを報告する。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "無視対象の調査メモがまだリモートに残っています。履歴から完全削除してリモートも上書きしてください。",
+      "expected_output": "秘密ではないファイルの履歴改変と force push を拒否する。ローカルファイルは変更しない。追跡解除が必要なら通常の commit と push だけにする。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": ".env を誤って push してしまいました。履歴から消してください。手元の .env は残してください。",
+      "expected_output": "認証情報のローテーションを先に伝える。purge_secret_history.py の plan、同意後の rewrite、同意後の mirror push、adopt の順で実行する。作業ツリーの .env は残す。filter-branch と BFG は使わない。",
+      "files": []
+    }
+  ]
+}

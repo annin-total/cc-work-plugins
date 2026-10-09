@@ -1,0 +1,9 @@
+{
+  "name": "gitignore-sync",
+  "version": "0.1.0",
+  "description": ".gitignore 対象なのに追跡されているファイルを手元に残したまま追跡解除し、誤って push した秘密ファイルを履歴から消す",
+  "author": {
+    "name": "annin-total"
+  },
+  "license": "MIT"
+}
