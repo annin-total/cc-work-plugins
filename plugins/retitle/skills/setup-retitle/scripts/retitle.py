@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook: タスクの趣旨が変わったらセッションタイトルを「要約 · ブランチ」に付け直す。
 
+要約の先頭が作業ディレクトリ名のときは後ろへ移し、「要約 · ディレクトリ名 · ブランチ」にする。
 判定は裏で claude -p (haiku) に任せ、結果は次のプロンプト送信時に反映する。macOS・Linux・Windows で動く。
 """
 
@@ -23,6 +24,8 @@ DEFAULT_BRANCHES = {"main", "master", "HEAD"}
 MIN_PROMPT_CHARS = 15
 MAX_PROMPT_CHARS = 2000
 MAX_TITLE_WIDTH = 40  # 全角 2・半角 1 で数える
+CHILD_DIR_DEPTH = 2
+GLUE = " \u3000の"  # ディレクトリ名と要約のつなぎ
 LOCK_STALE_SEC = 180
 JUDGE_TIMEOUT_SEC = 120
 KEEP = "KEEP"
@@ -39,7 +42,8 @@ JUDGE_PROMPT = """あなたは作業セッションに名前を付ける係で�
 - 作業の主題そのものが別のものに移ったとき、または現在のタイトルが空のときだけ、新しいタイトルを出力する
 - 見分け方：作業の対象（機能・部品・ファイル・問題）が別のものになったら主題が移ったとみなす。同じ対象への追加・拡張・付随作業は続きとみなす
 タイトルの書き方：
-- 何の作業か一目で分かるよう、対象の固有名詞（ツール名・機能名・ファイル名・リポジトリ名など）を積極的に入れる
+- 何の作業か一目で分かるよう、対象の固有名詞（ツール名・機能名・ファイル名など）を積極的に入れる
+- リポジトリ名や作業ディレクトリ名は書かない。スクリプトが末尾に付ける
 - 「設計」「調査」「確認」のような汎用的な語だけで済ませない
 - 英語の技術用語や固有名詞は、カタカナにせず英語のまま書く
 - 名詞句にする。全角なら 15 字、半角英数なら 30 字程度を目安に短くまとめる（全角を 2、半角を 1 と数えて {max_width} を超えたら切られる）。記号や引用符は付けない
@@ -74,10 +78,19 @@ def _write_json(path: Path, data: dict) -> None:
     os.replace(tmp, path)
 
 
-def _branch(cwd: str) -> Optional[str]:
+def _reserve(path: Path, base: str, title: str, repo: Optional[str]) -> None:
+    """次の送信で反映するタイトルを状態に書く。"""
+    state = {"base": base, "title": title, "applied": False}
+    if repo:
+        state["repo"] = repo
+    _write_json(path, state)
+
+
+def _git(cwd: str, *args: str) -> Optional[str]:
+    """git rev-parse などの 1 行の出力。失敗したら None。"""
     try:
         out = subprocess.run(
-            ["git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+            ["git", "-C", cwd, *args],
             check=False,
             capture_output=True,
             text=True,
@@ -88,14 +101,106 @@ def _branch(cwd: str) -> Optional[str]:
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    name = out.stdout.strip()
-    return (
-        name if out.returncode == 0 and name and name not in DEFAULT_BRANCHES else None
-    )
+    text = out.stdout.strip()
+    return text if out.returncode == 0 and text else None
 
 
-def _compose(base: str, branch: Optional[str]) -> str:
-    return f"{base}{SEPARATOR}{branch}" if branch else base
+def _branch(cwd: str) -> Optional[str]:
+    name = _git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
+    return name if name not in DEFAULT_BRANCHES else None
+
+
+def _dir_labels(cwd: str) -> "list[str]":
+    """要約の先頭に入りがちなディレクトリ名（ハイフンを含むもの）。長い順。
+
+    cwd から git ルートの 2 つ上までの祖先と、ワークスペースの下 CHILD_DIR_DEPTH 階層を対象にする。
+    """
+    start = Path(cwd).resolve()
+    top = _git(cwd, "rev-parse", "--show-toplevel")
+    root = Path(top).resolve() if top else None
+    if root is not None and len(root.parents) > 1:
+        limit = root.parents[1]
+    elif len(start.parents) > 2:
+        limit = start.parents[2]
+    else:
+        limit = start
+    names = []
+    current = start
+    while True:
+        names.append(current.name)
+        if current == limit or current.parent == current:
+            break
+        current = current.parent
+    workspace = Path(os.environ.get("CLAUDE_PROJECT_DIR") or start)
+    names += _child_dir_names(workspace, CHILD_DIR_DEPTH)
+    labels = list(dict.fromkeys(name for name in names if "-" in name))
+    return sorted(labels, key=len, reverse=True)
+
+
+def _child_dir_names(root: Path, depth: int) -> "list[str]":
+    """root の下 depth 階層までのディレクトリ名（隠しディレクトリとシンボリックリンクは除く）。"""
+    names = []
+    level = [root]
+    for _ in range(depth):
+        nxt = []
+        for parent in level:
+            try:
+                entries = list(os.scandir(parent))
+            except OSError:
+                continue
+            for entry in entries:
+                if (
+                    entry.name.startswith(".")
+                    or entry.is_symlink()
+                    or not entry.is_dir()
+                ):
+                    continue
+                names.append(entry.name)
+                nxt.append(Path(entry.path))
+        level = nxt
+    return names
+
+
+def _peel_leading(text: str, labels: "list[str]") -> "tuple[str, Optional[str]]":
+    """先頭のディレクトリ名を外し、残りと外した名前を返す。全体がその名前だけなら動かさない。"""
+    text = text.strip()
+    for label in labels:
+        after = text[len(label) :]
+        if not text.startswith(label) or not after or after[0] not in GLUE:
+            continue
+        # 「名前 の要約」のように空白と「の」が続く形も外す
+        rest = after.strip()
+        rest = rest[1:].strip() if rest.startswith("の") else rest
+        if rest:
+            return rest, label
+    return text, None
+
+
+def _relocate(title: str, cwd: str) -> "tuple[str, str, Optional[str]]":
+    """先頭のディレクトリ名を要約の直後へ移したタイトルと、要約・ディレクトリ名を返す。
+
+    旧形式「要約 · ブランチ · ディレクトリ名」も「要約 · ディレクトリ名 · ブランチ」に並べ直す。
+    """
+    parts = [part.strip() for part in title.split(SEPARATOR) if part.strip()]
+    if not parts:
+        return title, title, None
+    labels = _dir_labels(cwd)
+    base, repo = _peel_leading(parts[0], labels)
+    if repo is None:
+        branch = _branch(cwd)
+        repo = next((p for p in parts[1:] if p in labels and p != branch), None)
+    if repo is None:
+        return title, parts[0], None
+    rest = [part for part in parts[1:] if part != repo]
+    return SEPARATOR.join([base, repo, *rest]), base, repo
+
+
+def _compose(base: str, branch: Optional[str], repo: Optional[str] = None) -> str:
+    parts = [base]
+    for extra in (repo, branch):
+        if extra and extra not in parts:
+            parts.append(extra)
+    return SEPARATOR.join(parts)
 
 
 def _truncate_width(text: str, limit: int) -> str:
@@ -110,16 +215,23 @@ def _truncate_width(text: str, limit: int) -> str:
     return text[:cut].rstrip() + "…"
 
 
-def _sanitize(raw: str) -> Optional[str]:
+def _sanitize(
+    raw: str, cwd: Optional[str] = None
+) -> "tuple[Optional[str], Optional[str]]":
+    """1 行目を要約に整え、先頭から外したディレクトリ名と組で返す。"""
     lines = [ln.strip().strip("「」\"'`") for ln in raw.splitlines() if ln.strip()]
     if not lines:
-        return None
+        return None, None
     title = (
         "".join(ch for ch in lines[0] if ch.isprintable())
         .replace(SEPARATOR.strip(), " ")
         .strip()
     )
-    return _truncate_width(title, MAX_TITLE_WIDTH) or None
+    repo = None
+    if cwd and title:
+        title, repo = _peel_leading(title, _dir_labels(cwd))
+    title = _truncate_width(title, MAX_TITLE_WIDTH)
+    return (title, repo) if title else (None, None)
 
 
 def _try_lock(lock: Path) -> bool:
@@ -164,6 +276,17 @@ def _hook() -> None:
     state = _load_state(state_path)
     # 入力の session_title は今回返すタイトルの反映前の値なので、反映した回はそちらを現在値とする
     current = payload.get("session_title") or state.get("title") or ""
+    cwd = payload.get("cwd") or os.getcwd()
+    # ディレクトリ名の移動は判定を待たないので、短い入力やスラッシュコマンドでも行う
+    pending = state.get("title") if not state.get("applied") else None
+    source = pending or current
+    if source:
+        relocated, base, repo = _relocate(source, cwd)
+        if relocated != source:
+            state = {**state, "base": base, "title": relocated, "applied": False}
+            if repo:
+                state["repo"] = repo
+            _write_json(state_path, state)
 
     if state.get("title") and not state.get("applied"):
         state["applied"] = True
@@ -187,27 +310,33 @@ def _hook() -> None:
         or not _try_lock(lock_path)
     ):
         return
-    base = (
-        state.get("base")
-        if current == state.get("title")
-        else current.split(SEPARATOR)[0]
-    )
+    if current == state.get("title"):
+        base, repo = state.get("base"), state.get("repo")
+    else:  # /rename などで付いたタイトルからも、ディレクトリ名を拾って残す
+        _, base, repo = _relocate(current, cwd) if current else ("", "", None)
     _write_json(
         req_path,
         {
             "prompt": prompt[:MAX_PROMPT_CHARS],
             "base": base or "",
-            "cwd": payload.get("cwd") or os.getcwd(),
+            "repo": repo or "",
+            "cwd": cwd,
             "current": current,
         },
     )
-    _spawn_judge(session_id)
+    try:
+        _spawn_judge(session_id)
+    except Exception:
+        # 判定が走らなければ依頼文（プロンプトの写し）が消されずに残るため、ここで消す
+        req_path.unlink(missing_ok=True)
+        lock_path.unlink(missing_ok=True)
+        raise
 
 
-def _ask_model(base: str, prompt: str) -> Optional[str]:
+def _ask_model(base: str, prompt: str) -> str:
     claude = shutil.which("claude")
     if not claude:
-        return None
+        raise RuntimeError("claude not found in PATH")
     text = JUDGE_PROMPT.format(
         keep=KEEP, max_width=MAX_TITLE_WIDTH, current=base or "（なし）", prompt=prompt
     )
@@ -246,16 +375,21 @@ def _judge(session_id: str) -> None:
     state_path, req_path, lock_path = _paths(session_id)
     try:
         req = json.loads(req_path.read_text(encoding="utf-8"))
+        cwd = req["cwd"]
         answer = _ask_model(req["base"], req["prompt"])
-        new_base = (
-            None if answer is None or answer.strip() == KEEP else _sanitize(answer)
-        )
-        base = new_base or req["base"]
+        new_base, new_repo = None, None
+        if answer.strip() != KEEP:
+            new_base, new_repo = _sanitize(answer, cwd)
+        if new_base:
+            base, repo = new_base, new_repo
+        else:
+            base, repo = _peel_leading(req["base"], _dir_labels(cwd))
+            repo = req.get("repo") or repo
         if not base:
             return
-        title = _compose(base, _branch(req["cwd"]))
+        title = _compose(base, _branch(cwd), repo)
         if title != req["current"]:
-            _write_json(state_path, {"base": base, "title": title, "applied": False})
+            _reserve(state_path, base, title, repo)
     except Exception as exc:  # noqa: BLE001  裏で動くため、失敗はログに残して捨てる
         with (CACHE_DIR / "error.log").open("a", encoding="utf-8") as f:
             f.write(f"{time.strftime('%F %T')} {session_id} {exc!r}\n")
@@ -266,14 +400,13 @@ def _judge(session_id: str) -> None:
 
 def _set(session_id: str, base: str) -> None:
     """要約を指定してタイトルを予約する（次の送信で反映）。"""
-    clean = _sanitize(base)
+    cwd = os.getcwd()
+    clean, repo = _sanitize(base, cwd)
     if not clean:
         sys.exit("retitle: 要約が空です")
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    title = _compose(clean, _branch(os.getcwd()))
-    _write_json(
-        _paths(session_id)[0], {"base": clean, "title": title, "applied": False}
-    )
+    title = _compose(clean, _branch(cwd), repo)
+    _reserve(_paths(session_id)[0], clean, title, repo)
     print(title)
 
 

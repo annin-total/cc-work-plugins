@@ -32,6 +32,7 @@ Claude Code の中では `/plugin`、シェルでは `claude plugin` で操作�
 作業の趣旨が変わるたびに、セッションタイトルを「要約 · ブランチ」へ付け直す hook（`UserPromptSubmit`）と、手動で付け直す `/retitle [要約]` を導入する。
 
 - 前提: Python 3.8 以上で、仮想環境（venv）の外にあるもの（hook はこの Python で起動するよう登録される）。`PATH` に `claude` があること。Claude Code 2.1.139 以上
+- 要約の先頭に作業ディレクトリ名（ハイフンを含むもの）が入ったら、後ろへ移して「要約 · ディレクトリ名 · ブランチ」にする
 - 導入: プラグインを入れた後、`/retitle:setup-retitle` を呼ぶか「セッション名を自動で付け直す仕組みを入れて」と頼む。導入スクリプトが次を行う
   - 設定ディレクトリ（`CLAUDE_CONFIG_DIR` か `~/.claude`）の `settings.json` に hook を 1 件登録する（書き換え前に `settings.json.bak-retitle-<日時>` を残す）
   - hook 本体を `hooks/retitle.py`、`/retitle` を `skills/retitle/` に置く
