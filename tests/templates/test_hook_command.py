@@ -17,10 +17,10 @@ def _shell() -> str:
     if os.name != "nt":
         return shutil.which("sh") or "/bin/sh"
     git = shutil.which("git")
-    bash = Path(git).resolve().parents[1] / "bin" / "bash.exe" if git else None
-    if bash is None or not bash.is_file():
-        raise AssertionError(f"Git Bash が見つからない（git: {git}）")
-    return str(bash)
+    for parent in Path(git).resolve().parents if git else []:
+        if (parent / "bin" / "bash.exe").is_file():
+            return str(parent / "bin" / "bash.exe")
+    raise AssertionError(f"Git Bash が見つからない（git: {git}）")
 
 
 def _command() -> str:
