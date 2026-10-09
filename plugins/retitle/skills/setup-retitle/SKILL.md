@@ -9,6 +9,8 @@ description: Claude Code のセッションタイトルを、作業の趣旨が�
 
 - **hook**（`UserPromptSubmit`）: 送信のたびに、裏で `claude -p --model haiku` に「主題が変わったか」を判定させる。結果は**次の送信**でタイトルに反映される。
   15 字未満の入力と `/` で始まる入力は判定しない。main・master のブランチ名は付けない
+- **ディレクトリ名の移動**: 要約の先頭に作業ディレクトリ名（ハイフンを含むもの）が入ったら、後ろへ移して「要約 · ディレクトリ名 · ブランチ」にする。
+  判定を待たないので、短い入力でも次の送信で移る
 - **/retitle [要約]**: 要約を指定して付け直す（引数なしなら会話から要約を決める）
 
 導入の中身は `scripts/install.py` が一括で行う。hook の本体は `scripts/retitle.py`、/retitle の雛形は `assets/retitle-skill.md`。
@@ -74,5 +76,5 @@ Windows の `python3`・`python` は、Microsoft Store を開くだけの偽物�
 ## うまく動かないとき
 
 - タイトルが変わらない: `~/.cache/cc-retitle/error.log` を見る。`claude -p failed` なら、ターミナルで `claude -p --model haiku "hi"` が通るかを確かめる
-- `claude` が見つからない: hook は `PATH` の `claude` で判定する。`claude` を `PATH` に通す
+- `claude` が見つからない（`error.log` に `claude not found in PATH`）: hook は `PATH` の `claude` で判定する。`claude` を `PATH` に通す
 - Claude Code が古い: hook をシェルを介さずに起動する登録（`args`）は 2.1.139 以降で使える。`claude update` で更新する

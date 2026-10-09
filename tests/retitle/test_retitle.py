@@ -15,6 +15,26 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "plugins" / "retitle" / "skills"
 INSTALL = SCRIPTS / "install.py"
 HOOK = SCRIPTS / "retitle.py"
 OTHER_HOOK = {"type": "command", "command": "echo other"}
+FAKE_CLAUDE = """import json, os, sys
+sys.stdin.buffer.read()
+with open(os.environ["FAKE_CLAUDE_ARGS"], "w", encoding="utf-8") as f:
+    json.dump(sys.argv[1:], f)
+sys.stdout.buffer.write((os.environ["FAKE_CLAUDE_OUT"] + "\\n").encode("utf-8"))
+"""
+
+
+def _put_fake_claude(bin_dir: Path) -> None:
+    """PATH に置く偽の claude。Windows では npm 版と同じく claude.cmd から起動される。"""
+    if os.name == "nt":
+        script = bin_dir / "fake_claude.py"
+        script.write_text(FAKE_CLAUDE, encoding="utf-8")
+        (bin_dir / "claude.cmd").write_text(
+            f'@"{sys.executable}" "{script}" %*\n', encoding="utf-8"
+        )
+        return
+    fake = bin_dir / "claude"
+    fake.write_text(f"#!{sys.executable}\n{FAKE_CLAUDE}", encoding="utf-8")
+    fake.chmod(0o755)
 
 
 def _load(name: str, path: Path):
@@ -136,27 +156,30 @@ class HookFlowTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
         self.cache = root / "cache"
+        self.args_file = root / "claude-args.json"
         bin_dir = root / "bin"
         bin_dir.mkdir()
-        fake = bin_dir / "claude"
-        fake.write_text(
-            f"#!{sys.executable}\nimport sys\nsys.stdin.read()\nprint('偽の判定タイトル')\n",
-            encoding="utf-8",
-        )
-        fake.chmod(0o755)
+        _put_fake_claude(bin_dir)
         self.env = {
             **os.environ,
             "CC_RETITLE_CACHE_DIR": str(self.cache),
+            "CLAUDE_PROJECT_DIR": str(root),
+            "FAKE_CLAUDE_ARGS": str(self.args_file),
+            "FAKE_CLAUDE_OUT": "偽の判定タイトル",
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
         }
         self.env.pop("CC_RETITLE_CHILD", None)
-        self.cwd = str(root)  # git リポジトリの外なのでブランチは付かない
+        repo = root / "my-repo"
+        repo.mkdir()
+        self.cwd = str(repo)  # git リポジトリの外なのでブランチは付かない
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def _send(self, prompt: str) -> subprocess.CompletedProcess:
+    def _send(self, prompt: str, title: str = "") -> subprocess.CompletedProcess:
         payload = {"session_id": "s1", "prompt": prompt, "cwd": self.cwd}
+        if title:
+            payload["session_title"] = title
         return subprocess.run(
             [sys.executable, str(HOOK)],
             input=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -165,26 +188,42 @@ class HookFlowTest(unittest.TestCase):
             env=self.env,
         )
 
-    def test_title_applies_on_next_prompt(self) -> None:
+    def _judged_title(self) -> str:
+        """判定を 1 回走らせ、次の送信で反映されたタイトルを返す。"""
         first = self._send("認証まわりの不具合を調べてほしい。ログインが失敗する")
         self.assertEqual((first.returncode, first.stdout, first.stderr), (0, b"", b""))
         state = self.cache / "s1.json"
         deadline = time.time() + 30
         while not state.exists() and time.time() < deadline:
             time.sleep(0.2)
+        log = self.cache / "error.log"
         self.assertTrue(
-            state.exists(),
-            (self.cache / "error.log").read_text()
-            if (self.cache / "error.log").exists()
-            else "",
+            state.exists(), log.read_text(encoding="utf-8") if log.exists() else ""
         )
         second = self._send("ok")
         self.assertEqual(second.returncode, 0)
-        out = json.loads(second.stdout)
-        self.assertEqual(out["hookSpecificOutput"]["sessionTitle"], "偽の判定タイトル")
         self.assertTrue(
             second.stdout.isascii()
         )  # Windows のコンソールの文字コードに左右されない
+        return json.loads(second.stdout)["hookSpecificOutput"]["sessionTitle"]
+
+    def test_title_applies_on_next_prompt(self) -> None:
+        self.assertEqual(self._judged_title(), "偽の判定タイトル")
+        args = json.loads(self.args_file.read_text(encoding="utf-8"))
+        self.assertIn('{"disableAllHooks":true}', args)  # .cmd を経ても崩れない
+        self.assertIn("", args)  # --tools の空の値
+
+    def test_leading_dir_name_from_judge_moves_after_summary(self) -> None:
+        self.env["FAKE_CLAUDE_OUT"] = "my-repo の偽の判定タイトル"
+        self.assertEqual(self._judged_title(), "偽の判定タイトル · my-repo")
+
+    def test_short_prompt_still_moves_dir_name(self) -> None:
+        out = self._send("ok", title="my-repo 認証の調査")
+        self.assertEqual(
+            json.loads(out.stdout)["hookSpecificOutput"]["sessionTitle"],
+            "認証の調査 · my-repo",
+        )
+        self.assertFalse((self.cache / "s1.req").exists())  # 判定はしない
 
     def test_short_and_slash_prompts_are_not_judged(self) -> None:
         for prompt in ("短い", "/retitle 認証まわりの不具合の調査をする"):
