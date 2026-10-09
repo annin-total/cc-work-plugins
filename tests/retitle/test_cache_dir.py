@@ -38,8 +38,10 @@ class CacheDirTest(unittest.TestCase):
         self.assertTrue(self.cache.is_dir())
 
     @POSIX_ONLY
-    def test_new_dir_is_owner_only(self) -> None:
-        self.hook._ensure_cache_dir()
+    def test_new_dir_is_owner_only_from_creation(self) -> None:
+        with mock.patch.object(self.hook.os, "chmod") as chmod:  # 作った後に寄せる隙を作らない
+            self.hook._ensure_cache_dir()
+        chmod.assert_not_called()
         self.assertEqual(self._mode(self.cache), 0o700)
 
     @POSIX_ONLY
