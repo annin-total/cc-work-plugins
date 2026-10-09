@@ -1,10 +1,10 @@
 ---
 name: hearing-cost
-description: この端末の Claude Code 履歴から利用の重さをおおまかに推定し、利用状況を把握する担当者（管理者）向けのヒアリング調書（Markdown 1 ファイル）を作る。利用者が /hearing-cost で明示的に起動したときに使う。
+description: この端末の Claude Code 履歴から利用の重さをおおまかに推定し、利用状況を把握する担当者（管理者）向けのヒアリング調書（Markdown 1 ファイル）を作る。利用者が /hearing:hearing-cost で明示的に起動したときに使う。
 argument-hint: "[日数|開始日..終了日] [cleanup]"
 disable-model-invocation: true
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # hearing-cost
