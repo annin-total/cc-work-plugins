@@ -12,12 +12,13 @@ from typing import List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 CLAUDE = "claude"
+SKIP_CLAUDE_ENV = "CWP_SKIP_CLAUDE"  # テストに --skip-claude を伝える
 REQUIRED_KEYS = ("name", "version", "description", "author", "license")
 Result = Tuple[str, str, str]  # (PASS|FAIL|SKIP, 検査名, 失敗時の詳細)
 
 
-def _run(cmd: List[str], cwd: Path) -> Tuple[int, str]:
-    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+def _run(cmd: List[str], cwd: Path, **extra_env: str) -> Tuple[int, str]:
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", **extra_env)
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, encoding="utf-8", errors="replace", env=env)
     return r.returncode, r.stdout + r.stderr
 
@@ -91,14 +92,16 @@ def check_plugins(root: Path) -> List[Result]:
     return results
 
 
-def check_tests(root: Path) -> List[Result]:
+def check_tests(root: Path, skip_claude: bool) -> List[Result]:
     results = []
     base = root / "tests"
     for d in sorted(p for p in base.iterdir() if p.is_dir() and p.name != "__pycache__") if base.is_dir() else []:
-        code, out = _run([sys.executable, "-m", "unittest", "discover", "-s", str(d)], root)
+        extra = {SKIP_CLAUDE_ENV: "1"} if skip_claude else {}
+        code, out = _run([sys.executable, "-m", "unittest", "discover", "-s", str(d)], root, **extra)
         m = re.search(r"^Ran (\d+) tests?", out, re.MULTILINE)
         count = int(m.group(1)) if m else 0
-        name = f"unittest tests/{d.name}（{count} 件）"
+        skipped = re.search(r"skipped=(\d+)", out)
+        name = f"unittest tests/{d.name}（{count} 件" + (f"・うち SKIP {skipped.group(1)} 件" if skipped else "") + "）"
         if count == 0:
             results.append(("FAIL", name, "テストが 0 件\n" + out))
         else:
@@ -107,7 +110,7 @@ def check_tests(root: Path) -> List[Result]:
 
 
 def run_checks(root: Path, skip_claude: bool) -> List[Result]:
-    return check_claude(root, skip_claude) + check_marketplace(root) + check_plugins(root) + check_tests(root)
+    return check_claude(root, skip_claude) + check_marketplace(root) + check_plugins(root) + check_tests(root, skip_claude)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

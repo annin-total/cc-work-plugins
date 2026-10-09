@@ -1,5 +1,6 @@
 """templates/plugin の mod を、配布物の外に置いたテストと合わせて `claude plugin test` で確かめる。"""
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -11,9 +12,12 @@ MOD_TESTS = Path(__file__).resolve().parent / "mod"
 CLAUDE = shutil.which("claude")
 
 
-@unittest.skipUnless(CLAUDE, "claude が PATH に無い")
 class ModTest(unittest.TestCase):
     def test_mod_tests_pass(self) -> None:
+        if CLAUDE is None:
+            if os.environ.get("CWP_SKIP_CLAUDE") == "1":
+                self.skipTest("claude が PATH に無い（--skip-claude）")
+            self.fail("claude が PATH に無い（validate.py --skip-claude で明示して飛ばせる）")
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "plugin"
             shutil.copytree(PLUGIN, target)
