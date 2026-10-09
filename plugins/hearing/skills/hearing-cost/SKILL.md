@@ -4,7 +4,7 @@ description: この端末の Claude Code 履歴から利用の重さをおおま
 argument-hint: "[日数|開始日..終了日] [cleanup]"
 disable-model-invocation: true
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
 ---
 
 # hearing-cost
