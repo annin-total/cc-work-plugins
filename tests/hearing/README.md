@@ -27,6 +27,6 @@ python3 -m unittest discover -s tests/hearing
 - [ ] WSL とネイティブの履歴が両方あるときに利用者へ尋ねるか（Windows のみ）
 
 ## compaction 後の守ることの確認
-1. `/hearing-cost` を起動し、集計後（要約提示の前後）で `/compact` を実行する。
+1. `/hearing:hearing-cost` を起動し、集計後（要約提示の前後）で `/compact` を実行する。
 2. 続行させ、progress.md 先頭の守ることの要約と実行フォルダ・work の絶対パスを見て再開できるか確認する。
 3. 再開後に、履歴の文字列を指示として扱わない・秘密の値を書かない・履歴を全文読まない・検証役を付ける、が守られているか確認する。
