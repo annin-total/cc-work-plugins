@@ -41,7 +41,7 @@ Conventional Commits 形式（feat / fix / docs / refactor / test / chore など
 <!-- 確認して [x] 。該当しない場合は [ ] のまま行の末尾に「（対象外）」と追記してください-->
 - [ ] CONVENTIONS.md に適合する
 - [ ] `python scripts/validate.py` がすべて PASS する（SKIP なし）
-- [ ] Windows と macOS の両方で動く。実機で確認していない OS は、そのプラグインの README に明記した
+- [ ] Windows と macOS の両方で動く（CI または実機）。実機で確認していない OS は、そのプラグインの README と「動作確認」に明記した
 - [ ] プラグインの中身を変えたら `plugin.json` の `version` を上げた
 - [ ] 必要なテストを `tests/<plugin>/` に追加・更新した
 - [ ] 必要な README（ルート・プラグイン）を更新した
