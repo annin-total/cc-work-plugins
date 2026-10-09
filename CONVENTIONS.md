@@ -16,6 +16,7 @@
 
 - スキルから呼ぶときは `python3` → `python` → `py -3` の順に `--version` を試し、`Python 3.` を返したものを使う
 - hook のように毎回起動するものは、導入時に見つけた Python の絶対パスを登録してもよい
+- `hooks/hooks.json` から直接起動する書き方と制約は [templates/README.md](templates/README.md) にある
 
 ## hook
 
@@ -25,19 +26,16 @@
 ## テスト
 
 - テストは `tests/<plugin>/` に置き、`python -m unittest discover -s tests/<plugin>` で通す。プラグインの中には置かない（配布物に入るため）
-- CI（`.github/workflows/test.yml`）の macOS・Windows の両方で通す
+- テストが 0 件のディレクトリは検証で失敗になる
+- CI（`.github/workflows/test.yml`）は macOS・Windows の両方で `scripts/validate.py` を実行する
 - Windows 実機で確認していない点は、そのプラグインの README に明記する
 
 ## プラグインの構成
 
+- 雛形は `templates/plugin/`（手順は [templates/README.md](templates/README.md)）
 - `plugins/<name>/.claude-plugin/plugin.json` に `name`・`version`・`description`・`author`・`license` を書く
 - `.claude-plugin/marketplace.json` の `plugins` に登録する
-- 次がすべて通ること
-
-  ```bash
-  claude plugin validate . --strict
-  claude plugin validate plugins/<name> --strict
-  ```
+- `python scripts/validate.py` がすべて PASS すること（`claude plugin validate --strict`・marketplace.json との整合・必須項目・全テストを確かめる）
 
 - `plugins/<name>/README.md` に前提・使い方・注意を書き、ルートの README の「収録プラグイン」に 1 行で登録する。プラグインの README は配布物に入るので、プラグインの外へのリンクは GitHub の絶対 URL にする
 

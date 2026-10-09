@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for p in python3 python py; do if command -v \"$p\" >/dev/null 2>&1; then exec \"$p\" \"${CLAUDE_PLUGIN_ROOT}/hooks/on_prompt.py\"; fi; done; echo \"my-plugin: Python が見つからない\" >&2; exit 1"
+          }
+        ]
+      }
+    ]
+  }
+}

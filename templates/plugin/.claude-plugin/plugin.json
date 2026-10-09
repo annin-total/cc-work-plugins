@@ -1,0 +1,9 @@
+{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "description": "TODO: プラグインの説明を 1 文で書く",
+  "author": {
+    "name": "annin-total"
+  },
+  "license": "MIT"
+}
