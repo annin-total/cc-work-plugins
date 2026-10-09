@@ -26,11 +26,11 @@ Claude Code の中では `/plugin`、シェルでは `claude plugin` で操作�
 
 ## 対応 OS
 
-Windows・macOS。CI（GitHub Actions）で両 OS × Python 3.9 / 3.13 のテストを実行する。実機での確認状況は各プラグインの README に書く。
+Windows・macOS。CI（GitHub Actions）で両 OS × Python 3.9 / 3.13 の検証（`scripts/validate.py`）を実行する。実機での確認状況は各プラグインの README に書く。
 
 ## 規約
 
-収録ツールの作り方と変更の手順は [CONVENTIONS.md](CONVENTIONS.md) に従う。
+収録ツールの作り方と変更の手順は [CONVENTIONS.md](CONVENTIONS.md) に従う。新しいプラグインの雛形は [templates/](templates/README.md) にある。
 
 ## ライセンス
 
