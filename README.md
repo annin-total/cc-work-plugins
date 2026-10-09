@@ -21,6 +21,7 @@ Claude Code の中では `/plugin`、シェルでは `claude plugin` で操作�
 | --- | --- |
 | [hearing](plugins/hearing/README.md) | Claude Code の履歴から利用の重さを推定し、本人へのヒアリングと合わせた調書を作る |
 | [retitle](plugins/retitle/README.md) | 作業の趣旨が変わるたびにセッションタイトルを「要約 · ブランチ」へ付け直す hook を導入する |
+| [pluginize](plugins/pluginize/README.md) | 自作の hook・スキルをこのマーケットプレイスの規約に合わせて調整し、プラグインとして取り込む PR を作る |
 
 前提・使い方・費用・更新と削除の注意は、各プラグインの README に書く。
 
@@ -31,6 +32,7 @@ Windows・macOS。CI（GitHub Actions）で両 OS × Python 3.9 / 3.13 の検証
 ## 規約
 
 収録ツールの作り方と変更の手順は [CONVENTIONS.md](CONVENTIONS.md) に従う。新しいプラグインの雛形は [templates/](templates/README.md) にある。
+手元の hook・スキルを取り込むときは [pluginize](plugins/pluginize/README.md) を使える。このリポジトリを clone して Claude Code で開き、フォルダを信頼すると有効になる（`.claude/settings.json`）。
 
 ## ライセンス
 
