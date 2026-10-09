@@ -19,9 +19,10 @@ TODO: このプラグインが何をするかを 1〜2 文で書く。
 
 ```text
 /my-plugin:my-skill
+/my-plugin-hello
 ```
 
-TODO: 使い方と、hook が何をするかを書く。
+TODO: 使い方と、hook・mod が何をするかを書く。
 
 ## 動作確認の状況
 
