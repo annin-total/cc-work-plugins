@@ -8,6 +8,7 @@
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -27,6 +28,7 @@ MAX_TITLE_WIDTH = 40  # 全角 2・半角 1 で数える
 CHILD_DIR_DEPTH = 2
 GLUE = " \u3000の"  # ディレクトリ名と要約のつなぎ
 LOCK_STALE_SEC = 180
+CACHE_DIR_MODE = 0o700
 JUDGE_TIMEOUT_SEC = 120
 KEEP = "KEEP"
 CHILD_SETTINGS = '{"disableAllHooks":true}'
@@ -54,6 +56,29 @@ JUDGE_PROMPT = """あなたは作業セッションに名前を付ける係で�
 <<<
 {prompt}
 >>>"""
+
+
+def _ensure_cache_dir() -> None:
+    """キャッシュを所有者だけが読めるように用意する。Windows では既存の権限を変えない。"""
+    CACHE_DIR.mkdir(mode=CACHE_DIR_MODE, parents=True, exist_ok=True)
+    if IS_WINDOWS:
+        return
+    # 以前の版が umask 任せで作ったものも寄せる。リンク先や他人の物は触らない
+    st = os.lstat(CACHE_DIR)
+    mode = stat.S_IMODE(st.st_mode)
+    if stat.S_ISDIR(st.st_mode) and st.st_uid == os.getuid() and mode & 0o077:
+        os.chmod(CACHE_DIR, mode & CACHE_DIR_MODE)
+
+
+def _sweep_stale_requests() -> None:
+    """強制終了された判定が残した依頼文の写し（.req）を消す。"""
+    limit = time.time() - LOCK_STALE_SEC
+    for path in CACHE_DIR.glob("*.req"):
+        try:
+            if path.stat().st_mtime < limit:
+                path.unlink()
+        except OSError:  # 他の判定が同時に消した等。掃除は次回に回す
+            pass
 
 
 def _paths(session_id: str) -> "tuple[Path, Path, Path]":
@@ -271,7 +296,7 @@ def _hook() -> None:
     payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     session_id = payload["session_id"]
     prompt = payload.get("prompt") or ""
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_cache_dir()
     state_path, req_path, lock_path = _paths(session_id)
     state = _load_state(state_path)
     # 入力の session_title は今回返すタイトルの反映前の値なので、反映した回はそちらを現在値とする
@@ -314,6 +339,7 @@ def _hook() -> None:
         base, repo = state.get("base"), state.get("repo")
     else:  # /rename などで付いたタイトルからも、ディレクトリ名を拾って残す
         _, base, repo = _relocate(current, cwd) if current else ("", "", None)
+    _sweep_stale_requests()
     _write_json(
         req_path,
         {
@@ -404,7 +430,7 @@ def _set(session_id: str, base: str) -> None:
     clean, repo = _sanitize(base, cwd)
     if not clean:
         sys.exit("retitle: 要約が空です")
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_cache_dir()
     title = _compose(clean, _branch(cwd), repo)
     _reserve(_paths(session_id)[0], clean, title, repo)
     print(title)
