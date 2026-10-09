@@ -1,6 +1,6 @@
 {
   "name": "hearing",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Claude Code の履歴から利用の重さを推定し、ヒアリング調書を作る",
   "author": {
     "name": "annin-total"

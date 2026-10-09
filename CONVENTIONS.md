@@ -26,7 +26,7 @@
 
 - テストは `tests/<plugin>/` に置き、`python -m unittest discover -s tests/<plugin>` で通す。プラグインの中には置かない（配布物に入るため）
 - CI（`.github/workflows/test.yml`）の macOS・Windows の両方で通す
-- Windows 実機で確認していない点は README の該当プラグインの節に明記する
+- Windows 実機で確認していない点は、そのプラグインの README に明記する
 
 ## プラグインの構成
 
@@ -39,7 +39,7 @@
   claude plugin validate plugins/<name> --strict
   ```
 
-- README の「収録プラグイン」に使い方と前提を数行で書く
+- `plugins/<name>/README.md` に前提・使い方・注意を書き、ルートの README の「収録プラグイン」に 1 行で登録する。プラグインの README は配布物に入るので、プラグインの外へのリンクは GitHub の絶対 URL にする
 
 ## 変更の手順
 

@@ -4,47 +4,29 @@
 
 ## 導入
 
-Claude Code の中では `/plugin`、シェルでは `claude plugin` で操作する。
+Claude Code の中では `/plugin`、シェルでは `claude plugin` で操作する。`<name>` は下の「収録プラグイン」の名前。
 
 | 操作 | Claude Code の中 | シェル |
 | --- | --- | --- |
 | マーケットプレイスの追加 | `/plugin marketplace add annin-total/cc-work-plugins` | `claude plugin marketplace add annin-total/cc-work-plugins` |
-| プラグインの導入 | `/plugin install hearing@cc-work-plugins` | `claude plugin install hearing@cc-work-plugins` |
-| 更新 | `/plugin marketplace update cc-work-plugins` の後、`/plugin` の画面から更新する | `claude plugin marketplace update cc-work-plugins` → `claude plugin update hearing@cc-work-plugins` |
-| 削除 | `/plugin uninstall hearing@cc-work-plugins` | `claude plugin uninstall hearing@cc-work-plugins` |
+| プラグインの導入 | `/plugin install <name>@cc-work-plugins` | `claude plugin install <name>@cc-work-plugins` |
+| 更新 | `/plugin marketplace update cc-work-plugins` の後、`/plugin` の画面から更新する | `claude plugin marketplace update cc-work-plugins` → `claude plugin update <name>@cc-work-plugins` |
+| 削除 | `/plugin uninstall <name>@cc-work-plugins` | `claude plugin uninstall <name>@cc-work-plugins` |
 
 導入・更新は、次に起動したセッションから効く。
 
 ## 収録プラグイン
 
-### hearing
+| 名前 | 内容 |
+| --- | --- |
+| [hearing](plugins/hearing/README.md) | Claude Code の履歴から利用の重さを推定し、本人へのヒアリングと合わせた調書を作る |
+| [retitle](plugins/retitle/README.md) | 作業の趣旨が変わるたびにセッションタイトルを「要約 · ブランチ」へ付け直す hook を導入する |
 
-この端末の Claude Code の履歴から利用の重さ（モデル・effort・トークン量・頻度・セッションの長さなど）をおおまかに推定し、本人へのヒアリングと合わせた調書（Markdown 1 ファイル）を作る。金額は出さない。設定は変更しない。
-
-- 前提: Python 3.9 以上（`python3` → `python` → `py -3` の順に探す）
-- 使い方: `/hearing:hearing-cost [日数|開始日..終了日] [cleanup]`（既定は直近 30 日）。明示的に呼んだときだけ動く
-- 出力: 起動したディレクトリの `hearing-cost/<日時>/` に調書を置く（`hearing-cost/.gitignore` で git から外す）。調書は自動送信しない
-- 詳細: [SKILL.md](plugins/hearing/skills/hearing-cost/SKILL.md)、評価手順は [tests/hearing/README.md](tests/hearing/README.md)
-- **Windows・macOS とも実機での確認は未完了**（チェックリストは評価手順にある。CI の自動テストは両 OS で実行している）
-
-### retitle
-
-作業の趣旨が変わるたびに、セッションタイトルを「要約 · ブランチ」へ付け直す hook（`UserPromptSubmit`）と、手動で付け直す `/retitle [要約]` を導入する。
-
-- 前提: Python 3.8 以上で、仮想環境（venv）の外にあるもの（hook はこの Python で起動するよう登録される）。`PATH` に `claude` があること。Claude Code 2.1.139 以上
-- 要約の先頭に作業ディレクトリ名（ハイフンを含むもの）が入ったら、後ろへ移して「要約 · ディレクトリ名 · ブランチ」にする
-- 導入: プラグインを入れた後、`/retitle:setup-retitle` を呼ぶか「セッション名を自動で付け直す仕組みを入れて」と頼む。導入スクリプトが次を行う
-  - 設定ディレクトリ（`CLAUDE_CONFIG_DIR` か `~/.claude`）の `settings.json` に hook を 1 件登録する（書き換え前に `settings.json.bak-retitle-<日時>` を残す）
-  - hook 本体を `hooks/retitle.py`、`/retitle` を `skills/retitle/` に置く
-- 費用と送信: 15 字以上の送信のたびに、利用者自身の認証で `claude -p --model haiku` を 1 回呼ぶ（本文の先頭 2000 字を送る）。状態は `~/.cache/cc-retitle/` に溜まる（macOS・Linux では所有者だけが読める権限にする）
-- 更新: プラグインを更新しても、導入済みの hook と `/retitle` は変わらない。更新後にもう一度 `/retitle:setup-retitle` を呼ぶ
-- 削除: **プラグインを削除する前に**、`/retitle:setup-retitle` で削除を頼む（hook と `/retitle` を除く）。プラグインを削除しても、登録済みの hook は残る。`~/.cache/cc-retitle/` は自動では消えない
-- 詳細: [SKILL.md](plugins/retitle/skills/setup-retitle/SKILL.md)
-- **Windows 実機では未確認**（CI の自動テストは Windows でも実行している）
+前提・使い方・費用・更新と削除の注意は、各プラグインの README に書く。
 
 ## 対応 OS
 
-Windows・macOS。CI（GitHub Actions）で両 OS × Python 3.9 / 3.13 のテストを実行する。実機での確認状況は各プラグインの節に書く。
+Windows・macOS。CI（GitHub Actions）で両 OS × Python 3.9 / 3.13 のテストを実行する。実機での確認状況は各プラグインの README に書く。
 
 ## 規約
 
