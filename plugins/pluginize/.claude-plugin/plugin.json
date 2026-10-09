@@ -1,6 +1,6 @@
 {
   "name": "pluginize",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "自作の hook・スキルをマーケットプレイスの規約に合わせて調整し、プラグインとして取り込む PR を作る",
   "author": {
     "name": "annin-total"
