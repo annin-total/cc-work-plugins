@@ -14,6 +14,11 @@
       "name": "retitle",
       "source": "./plugins/retitle",
       "description": "作業の趣旨が変わるたびにセッションタイトルを「要約 · ブランチ」へ付け直す hook の導入スキル"
+    },
+    {
+      "name": "pluginize",
+      "source": "./plugins/pluginize",
+      "description": "自作の hook・スキルを規約に合わせて調整し、プラグインとして取り込む PR を作る /pluginize:pluginize"
     }
   ]
 }

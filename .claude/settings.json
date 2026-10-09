@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "cc-work-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "annin-total/cc-work-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pluginize@cc-work-plugins": true
+  }
+}
